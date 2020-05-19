@@ -1,0 +1,19 @@
+{
+	"repoName": "fpp-VideoCapture",
+	"name": "Video Capture",
+	"author": "Chris Pinkham (CaptainMurdoch)",
+	"description": "Capture Video from Linux V4L2 device and insert into channel data",
+	"homeURL": "https://github.com/FalconChristmas/fpp-VideoCapture",
+	"srcURL": "https://github.com/FalconChristmas/fpp-VideoCapture.git",
+	"bugURL": "https://github.com/FalconChristmas/fpp-VideoCapture/issues",
+	"versions": [
+        {
+            "minFPPVersion": "4.0",
+            "maxFPPVersion": "0",
+            "branch": "master",
+            "sha": "",
+            "allowUpdates": 1
+        }
+	]
+}
+
