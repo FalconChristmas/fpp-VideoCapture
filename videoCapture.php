@@ -330,9 +330,9 @@ $(document).ready(function() {
                         <option value='scale'>Scale</option>
                         -->
                     </select></td></tr>
-            <tr class='cropInput' style='display: none;'><td>Crop Left Offset:</td>
+            <tr class='cropInput'><td>Crop Left Offset:</td>
                 <td><input type='number' id='cropL' min='0' max='160' onChange='OutputAdjusted("L");'></td></tr>
-            <tr class='cropInput' style='display: none;'><td>Crop Top Offset:</td>
+            <tr class='cropInput'><td>Crop Top Offset:</td>
                 <td><input type='number' id='cropT' min='0' max='120' onChange='OutputAdjusted("T");'></td></tr>
         </table>
 
