@@ -84,8 +84,10 @@ public:
             if (FileExists(deviceName)) {
                 vcap = new v4l2Capture(deviceName.c_str(), width, height, fps);
 
-                if (vcap)
-                    vcap->Init();
+                if (vcap && !vcap->Init()) {
+                    delete vcap;
+                    vcap = nullptr;
+                }
             } else {
                 LogErr(VB_PLUGIN, "Device %s does not exist\n", deviceName.c_str());
             }

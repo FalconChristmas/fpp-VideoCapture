@@ -2,6 +2,7 @@
 
 #include <sys/mman.h>
 
+#include "common.h"
 #include "log.h"
 
 v4l2Capture::v4l2Capture(std::string deviceName, unsigned int width,
@@ -32,8 +33,15 @@ bool v4l2Capture::Init()
     struct v4l2_requestbuffers      req;
     struct v4l2_streamparm          parm;
 
+    if (!FileExists(m_deviceName)) {
+        LogErr(VB_PLUGIN, "Video device %s does not exist\n",
+            m_deviceName.c_str());
+        m_fd = -1;
+        return false;
+    }
+
     m_fd = v4l2_open(m_deviceName.c_str(), O_RDWR | O_NONBLOCK, 0);
-    if (m_fd < 0) {
+    if (m_fd == -1) {
         LogErr(VB_PLUGIN, "Unable to open video device %s: %s\n",
             m_deviceName.c_str(), strerror(errno));
         return false;
@@ -125,6 +133,11 @@ void v4l2Capture::StartCapture()
 {
     LogDebug(VB_PLUGIN, "v4l2Capture::StartCapture()\n");
 
+    if (m_fd == -1) {
+        LogErr(VB_PLUGIN, "StartCapture() called when no video device is open\n");
+        return;
+    }
+
     enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     IOCTLWrapper(m_fd, VIDIOC_STREAMON, &type);
 
@@ -176,6 +189,11 @@ void v4l2Capture::StopCapture()
 {
     LogDebug(VB_PLUGIN, "v4l2Capture::StopCapture()\n");
 
+    if (m_fd == -1) {
+        LogErr(VB_PLUGIN, "StopCapture() called when no video device is open\n");
+        return;
+    }
+
     if (!m_captureFrames)
         return;
 
@@ -195,7 +213,10 @@ void v4l2Capture::Close()
     for (int i = 0; i < m_bufferCount; ++i)
         v4l2_munmap(m_buffers[i].start, m_buffers[i].length);
 
-    v4l2_close(m_fd);
+    if (m_fd != -1) {
+        v4l2_close(m_fd);
+        m_fd = -1;
+    }
 
     free(m_frame);
 }
@@ -213,6 +234,9 @@ bool v4l2Capture::GetFrame(unsigned char *buffer)
 bool v4l2Capture::IOCTLWrapper(int fh, int request, void *arg)
 {
     int ret;
+
+    if (m_fd == -1)
+        return false;
 
     do {
         ret = v4l2_ioctl(fh, request, arg);
