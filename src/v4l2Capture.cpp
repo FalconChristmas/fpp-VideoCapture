@@ -139,7 +139,11 @@ void v4l2Capture::StartCapture()
     }
 
     enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    IOCTLWrapper(m_fd, VIDIOC_STREAMON, &type);
+    if (!IOCTLWrapper(m_fd, VIDIOC_STREAMON, &type)) {
+        Close();
+        LogDebug(VB_PLUGIN, "VIDIOC_STREAMON call failed\n");
+        return;
+    }
 
     m_captureFrames = true;
     m_captureThread = new std::thread([this]() {
@@ -171,14 +175,22 @@ void v4l2Capture::StartCapture()
             bzero(&buf, sizeof(buf));
             buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             buf.memory = V4L2_MEMORY_MMAP;
-            IOCTLWrapper(m_fd, VIDIOC_DQBUF, &buf);
+            if (!IOCTLWrapper(m_fd, VIDIOC_DQBUF, &buf)) {
+                Close();
+                LogErr(VB_PLUGIN, "VIDIOC_DQBUF call failed\n");
+                m_captureFrames = false;
+            }
 
             std::unique_lock<std::mutex> captureLock(m_captureMutex);
 
             LogExcess(VB_PLUGIN, "v4l2Capture: Captured frame #%llu\n", frameCount++);
             memcpy(m_frame, m_buffers[buf.index].start, buf.bytesused);
 
-            IOCTLWrapper(m_fd, VIDIOC_QBUF, &buf);
+            if (!IOCTLWrapper(m_fd, VIDIOC_QBUF, &buf)) {
+                Close();
+                LogErr(VB_PLUGIN, "VIDIOC_QBUF call failed\n");
+                m_captureFrames = false;
+            }
         }
 
         LogDebug(VB_PLUGIN, "v4l2Capture: Capture thread done\n");
