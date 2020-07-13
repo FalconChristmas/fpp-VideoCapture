@@ -111,7 +111,7 @@ public:
         }
 
         if (tmpFrame)
-            delete tmpFrame;
+            free(tmpFrame);
     }
 
     class SetVideoCaptureCommand : public Command {
