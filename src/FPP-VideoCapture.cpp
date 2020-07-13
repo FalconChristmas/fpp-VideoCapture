@@ -105,7 +105,10 @@ public:
         if (forceChannelOutput)
             StopForcingChannelOutput();
 
-        delete vcap;
+        if (vcap) {
+            delete vcap;
+            vcap = nullptr;
+        }
 
         if (tmpFrame)
             delete tmpFrame;
