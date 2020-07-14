@@ -13,6 +13,8 @@
 
 #include <httpserver.hpp>
 
+#include "fppversion_defines.h"
+
 #include "channeloutput/channeloutputthread.h"
 #include "commands/Commands.h"
 #include "common.h"
@@ -96,9 +98,6 @@ public:
         }
 
         registerCommand();
-
-        if (forceChannelOutput)
-            StartForcingChannelOutput();
     }
 
     virtual ~FPPVideoCapturePlugin() {
@@ -179,11 +178,22 @@ public:
         return std::shared_ptr<httpserver::http_response>(new httpserver::string_response(respStr, respCode, respType));
     }
 
+    virtual void addControlCallbacks(std::map<int, std::function<bool(int)>> &callbacks) override {
+        // at this point, everything is configured, we can start the output if needed
+        if (forceChannelOutput) {
+            StartForcingChannelOutput();
+        }
+    }
+
     void registerApis(httpserver::webserver *m_ws) override {
         m_ws->register_resource("/VideoCapture", this, true);
     }
 
+#if FPP_MAJOR_VERSION < 4 || FPP_MINOR_VERSION < 1
     virtual void modifyChannelData(int ms, uint8_t *seqData) override {
+#else
+    virtual void modifySequenceData(int ms, uint8_t *seqData) override {
+#endif
         LogExcess(VB_PLUGIN, "modifyChannelData()\n");
 
         if (vcap && captureOn) {
