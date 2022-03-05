@@ -1,232 +1,263 @@
-#include <atomic>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <algorithm>
-#include <cstring>
-
-#include <unistd.h>
-#include <termios.h>
-#include <chrono>
-#include <thread>
-#include <cmath>
+#include <fpp-pch.h>
 
 #include <httpserver.hpp>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 
-#include "fppversion_defines.h"
-
-#include "channeloutput/channeloutputthread.h"
-#include "commands/Commands.h"
-#include "common.h"
 #include "Plugin.h"
 #include "Plugins.h"
-#include "Sequence.h"
-#include "log.h"
 
-#include "v4l2Capture.h"
+#include "overlays/PixelOverlayEffects.h"
+#include "overlays/PixelOverlayModel.h"
+
+#include <libcamera/camera_manager.h>
+#include <libcamera/camera.h>
+#include <libcamera/property_ids.h>
+#include <libcamera/formats.h>
+#include <libcamera/framebuffer_allocator.h>
+#include <libcamera/request.h>
+using namespace libcamera;
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+}
+
+static AVPixelFormat mapPixelFormat(PixelFormat &fm) {
+    switch (fm) {
+    case formats::RGB565: return AV_PIX_FMT_RGB565LE;
+    case formats::BGR888: return AV_PIX_FMT_BGR24;
+    case formats::RGB888: return AV_PIX_FMT_RGB24;
+    case formats::XRGB8888: return AV_PIX_FMT_0RGB;
+    case formats::XBGR8888: return AV_PIX_FMT_0BGR;
+    case formats::BGRX8888: return AV_PIX_FMT_BGR0;
+    case formats::ABGR8888: return AV_PIX_FMT_ABGR;
+    case formats::ARGB8888: return AV_PIX_FMT_ARGB;
+    case formats::BGRA8888: return AV_PIX_FMT_BGRA;
+    case formats::RGBA8888: return AV_PIX_FMT_RGBA;
+    case formats::YUYV: return AV_PIX_FMT_YUYV422;
+    case formats::YVYU: return AV_PIX_FMT_YVYU422;
+    case formats::UYVY: return AV_PIX_FMT_UYVY422;
+    case formats::VYUY: return AV_PIX_FMT_YVYU422;
+    case formats::NV12: return AV_PIX_FMT_NV12;
+    case formats::NV21: return AV_PIX_FMT_NV21;
+    case formats::NV16: return AV_PIX_FMT_NV16;
+    case formats::NV24: return AV_PIX_FMT_NV24;
+    case formats::NV42: return AV_PIX_FMT_NV42;
+    case formats::YUV420: return AV_PIX_FMT_YUV420P;
+    case formats::YUV422: return AV_PIX_FMT_YUYV422;
+
+    default:
+        break;
+    }
+    return AV_PIX_FMT_NONE;
+}
+
 
 class FPPVideoCapturePlugin : public FPPPlugin, public httpserver::http_resource {
 public:
-    
-    FPPVideoCapturePlugin()
-      : FPPPlugin("fpp-VideoCapture"),
-        vcap(NULL),
-        width(160),
-        height(120),
-        outputWidth(160),
-        outputHeight(120),
-        cropL(0),
-        cropT(0),
-        startChannel(0),
-        captureOn(true),
-        forceChannelOutput(false),
-        tmpFrame(NULL)
-    {
-        std::string  deviceName = "/dev/video0";
-        unsigned int fps = 5;
-
-        if (LoadJsonFromFile("/home/fpp/media/config/plugin.fpp-VideoCapture.json", config)) {
-            if (config.isMember("deviceName"))
-                deviceName = config["deviceName"].asString();
-
-            if (config.isMember("width"))
-                width = config["width"].asInt();
-
-            if (config.isMember("height"))
-                height = config["height"].asInt();
-
-            if (config.isMember("outputWidth"))
-                outputWidth = config["outputWidth"].asInt();
-
-            if (config.isMember("outputHeight"))
-                outputHeight = config["outputHeight"].asInt();
-
-            if (config.isMember("cropL"))
-                cropL = config["cropL"].asInt();
-
-            if (config.isMember("cropT"))
-                cropT = config["cropT"].asInt();
-
-            if (config.isMember("fps"))
-                fps = config["fps"].asInt();
-
-            if (config.isMember("startChannel")) // UI is 1-based, we are 0
-                startChannel = config["startChannel"].asInt() - 1;
-
-            if (config.isMember("captureOn"))
-                captureOn = (config["captureOn"].asInt() == 1);
-
-            if (config.isMember("forceChannelOutput"))
-                forceChannelOutput = (config["forceChannelOutput"].asInt() == 1);
-        }
-
-        tmpFrame = (unsigned char *)malloc(width * height * 3);
-
-        if ((startChannel + (width * height * 3)) < FPPD_MAX_CHANNELS) {
-            if (FileExists(deviceName)) {
-                vcap = new v4l2Capture(deviceName.c_str(), width, height, fps);
-
-                if (vcap && !vcap->Init()) {
-                    delete vcap;
-                    vcap = nullptr;
-                }
-            } else {
-                LogErr(VB_PLUGIN, "Device %s does not exist\n", deviceName.c_str());
-            }
-        } else {
-            LogErr(VB_PLUGIN, "Video buffer extends past max channel value\n");
-        }
-
-        registerCommand();
-    }
-
-    virtual ~FPPVideoCapturePlugin() {
-        if (forceChannelOutput)
-            StopForcingChannelOutput();
-
-        if (vcap) {
-            delete vcap;
-            vcap = nullptr;
-        }
-
-        if (tmpFrame)
-            free(tmpFrame);
-    }
-
-    class SetVideoCaptureCommand : public Command {
+    class VideoCaptureEffect : public PixelOverlayEffect {
     public:
-        SetVideoCaptureCommand(FPPVideoCapturePlugin *p) : Command("VideoCapture"), plugin(p) {
-            args.push_back(CommandArg("capture", "bool", "Capture Video")
-                           .setDefaultValue("true"));
+        VideoCaptureEffect(FPPVideoCapturePlugin *p) : PixelOverlayEffect("Video Capture"), plugin(p) {
+            args.push_back(CommandArg("Camera", "string", "Camera").setContentListUrl("api/plugin-apis/VideoCapture/Cameras", false));
+        }
+        virtual bool apply(PixelOverlayModel* model, const std::string& ae, const std::vector<std::string>& args) {
+            if (args.size() < 1) {
+                return false;
+            }
+            auto camera = plugin->cameras->get(args[0]);
+            camera->acquire();
+
+            VCRunningEffect* re = new VCRunningEffect(camera, model, ae, args);
+            model->setRunningEffect(re, 1);
+            return true;
         }
 
-        virtual std::unique_ptr<Command::Result> run(const std::vector<std::string> &args) override {
-            std::string v = args[0];
-            if ((v == "true") || (v == "1")) {
-                plugin->captureOn = true;
-            } else {
-                plugin->captureOn = false;
+        class VCRunningEffect : public RunningEffect {
+        public:
+            VCRunningEffect(std::shared_ptr<Camera> c, PixelOverlayModel* m, const std::string& ae, const std::vector<std::string>& args) :
+                RunningEffect(m),
+                camera(c),
+                autoEnable(false) {
+
+                PixelOverlayState st(ae);
+                if (st.getState() != PixelOverlayState::PixelState::Disabled) {
+                    autoEnable = true;
+                    model->setState(st);
+                }
+                auto config = camera->generateConfiguration( { StreamRole::Viewfinder});
+                StreamConfiguration &sc = config->at(0);
+                sc.size.width = m->getWidth();
+                sc.size.height = m->getHeight();
+                sc.pixelFormat = libcamera::formats::RGB888;
+                sc.bufferCount = 6;
+                config->validate();
+                if (sc.size.width < m->getWidth() || sc.size.height < m->getHeight()) {
+                    //we'd rather scale down than up so try a bit larger and
+                    //see if we can get a better resolution image
+                    sc.size.width = m->getWidth() * 3 / 2;
+                    sc.size.height = m->getHeight() * 2 / 2;
+                    sc.pixelFormat = libcamera::formats::RGB888;
+                    config->validate();
+                }
+                camera->configure(config.get());
+                allocator = new FrameBufferAllocator(camera);
+                allocator->allocate(sc.stream());
+                camera->start();
+
+                if (sc.size.width != m->getWidth()
+                    || sc.size.height != m->getHeight()
+                    || sc.pixelFormat != libcamera::formats::RGB888) {
+
+                    AVPixelFormat pf = mapPixelFormat(sc.pixelFormat);
+                    if (pf == AV_PIX_FMT_NONE) {
+                        printf("WARN WARN WARN WARN\n");
+                    }
+                    swsCtx = sws_getContext(sc.size.width, sc.size.height, pf, 
+                                            m->getWidth(), m->getHeight(), AVPixelFormat::AV_PIX_FMT_RGB24,
+                                            SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
+
+                    srcFrame = av_frame_alloc();
+                    srcFrame->width = sc.size.width;
+                    srcFrame->height = sc.size.height;
+                    srcFrame->format = pf;
+
+                    av_frame_get_buffer(srcFrame, 0);
+                    dstFrame = av_frame_alloc();
+                    dstFrame->width =  m->getWidth();
+                    dstFrame->height = m->getHeight();
+                    dstFrame->format = AVPixelFormat::AV_PIX_FMT_RGB24;
+                    dstFrame->linesize[0] = m->getWidth() * 3;
+                    av_frame_get_buffer(dstFrame, 0);
+                }
+
+                numBuffers = sc.bufferCount;
+                if (numBuffers > 6) {
+                    numBuffers = 6;
+                }
+                for (int x = 0; x < numBuffers; x++) {
+                    requests[x] = camera->createRequest();
+                    requests[x]->reuse(Request::ReuseFlag::ReuseBuffers);
+                    requests[x]->addBuffer(sc.stream(), allocator->buffers(sc.stream())[x].get());
+                    bufferSize = allocator->buffers(sc.stream())[x]->planes()[0].length;
+                    buffers[x] = (uint8_t*)mmap(NULL, bufferSize, PROT_READ | PROT_WRITE, MAP_SHARED,  allocator->buffers(sc.stream())[x]->planes()[0].fd.get(), 0);
+                    camera->queueRequest(requests[x].get());
+                }
             }
-            return std::make_unique<Command::Result>("OK");
-        }
+            virtual ~VCRunningEffect() {
+                camera->stop();
+                for (int x = 0; x < numBuffers; x++) {
+                    if (buffers[x]) {
+                        munmap(buffers[numBuffers], bufferSize);
+                    }
+                }
+                if (swsCtx) {
+                    av_frame_free(&srcFrame);
+                    av_frame_free(&dstFrame);
+                }
+                camera->release();
+                delete allocator;
+            }
+            const std::string& name() const override {
+                static std::string NAME = "Video Capture";
+                return NAME;
+            }
+            virtual int32_t update() override {
+                //printf("Status: %d     Buffers:  %d    Seq:  %d\n", requests[curRequest]->status(), requests[curRequest]->hasPendingBuffers(), requests[curRequest]->sequence());
+                //printf("      : %d     Buffers:  %d    Seq:  %d\n", requests[curRequest+1]->status(), requests[curRequest+1]->hasPendingBuffers(), requests[curRequest+1]->sequence());
+                if (requests[curRequest]->status() == Request::Status::RequestComplete) {
+                    if (swsCtx) {
+                        uint8_t *olds = srcFrame->data[0];
+                        uint8_t *oldd = dstFrame->data[0];
+                        srcFrame->data[0] = buffers[curRequest];
+                        dstFrame->data[0] = model->getOverlayBuffer();
+
+                        sws_scale(swsCtx, 
+                                    srcFrame->data, srcFrame->linesize,
+                                    0, srcFrame->height, 
+                                    dstFrame->data, dstFrame->linesize);
+
+                        srcFrame->data[0] = olds;
+                        dstFrame->data[0] = oldd;
+                    } else {
+                        memcpy(model->getOverlayBuffer(), buffers[curRequest], model->getWidth() * model->getHeight() * 3);
+                    }
+                    model->setOverlayBufferDirty(true);
+
+                    requests[curRequest]->reuse(Request::ReuseFlag::ReuseBuffers);
+                    camera->queueRequest(requests[curRequest].get());
+                    curRequest++;
+                    if (curRequest == numBuffers) {
+                        curRequest = 0;
+                    }
+                }
+                return 25;
+            }
+            std::shared_ptr<Camera> camera;
+            FrameBufferAllocator *allocator;
+            bool autoEnable;
+
+            std::unique_ptr<Request> requests[6];
+            uint8_t *buffers[6];
+            int curRequest = 0;
+            int numBuffers = 6;
+
+            uint8_t *buffer = nullptr;
+            size_t bufferSize = 0;
+            SwsContext *swsCtx = nullptr;
+            AVFrame *srcFrame = nullptr;
+            AVFrame *dstFrame = nullptr;
+        };
 
         FPPVideoCapturePlugin *plugin;
     };
-    void registerCommand() {
-        CommandManager::INSTANCE.addCommand(new SetVideoCaptureCommand(this));
+
+    FPPVideoCapturePlugin()
+      : FPPPlugin("fpp-VideoCapture")
+    {
+        cameras = new CameraManager();
+        cameras->start();
+
+        if (!cameras->cameras().empty()) {
+            effect = new VideoCaptureEffect(this);
+            PixelOverlayEffect::AddPixelOverlayEffect(effect);
+        }
+    }
+
+    virtual ~FPPVideoCapturePlugin() {
+        if (effect) {
+            PixelOverlayEffect::RemovePixelOverlayEffect(effect);
+        }
+        cameras->stop();
+        delete cameras;
     }
 
     virtual const std::shared_ptr<httpserver::http_response> render_GET(const httpserver::http_request &req) override {
-        std::string respStr = "{ \"Status\": \"OK\" }";
-        int respCode = 200;
-        std::string respType = "application/json";
-        std::string p0 = req.get_path_pieces()[0];
-        int plen = req.get_path_pieces().size();
-        if (plen > 0) {
-            if (req.get_path_pieces()[1] == "getFrame") {
-                if (vcap) {
-                    int pixels = width * height;
-
-                    respType = "image/x-portable-pixmap";
-
-                    vcap->GetFrame(tmpFrame);
-
-                    char line[32];
-                    sprintf(line, "P3\n%d %d\n255\n", width, height);
-
-                    respStr = line;
-
-                    unsigned char *r = tmpFrame;
-                    unsigned char *g = tmpFrame + 1;
-                    unsigned char *b = tmpFrame + 2;
-
-                    for (int i = 0; i < pixels; i++) {
-                        sprintf(line, "%d %d %d\n", (int)*r, (int)*g, (int)*b);
-                        respStr += line;
-
-                        r += 3;
-                        g += 3;
-                        b += 3;
-                    }
-                } else {
-                    respStr = "{ \"Status\": \"No Capture Device Configured\" }";
-                    respCode = 404;
+        std::string respStr = "";
+        int respCode = 404;
+        std::string respType = "text/plain";
+        if (req.get_path_pieces().size() > 1) {
+            std::string p1 = req.get_path_pieces()[1];
+            if (p1 == "Cameras") {
+                Json::Value camerasJson;
+                for (auto &a : cameras->cameras()) {
+                    camerasJson[a->id()] = a->properties().get(libcamera::properties::Model);
                 }
+                respCode = 200;
+                respStr = SaveJsonToString(camerasJson);
+                respType = "application/json";
             }
         }
-
         return std::shared_ptr<httpserver::http_response>(new httpserver::string_response(respStr, respCode, respType));
-    }
-
-    virtual void addControlCallbacks(std::map<int, std::function<bool(int)>> &callbacks) override {
-        // at this point, everything is configured, we can start the output if needed
-        if (forceChannelOutput) {
-            StartForcingChannelOutput();
-        }
     }
 
     void registerApis(httpserver::webserver *m_ws) override {
         m_ws->register_resource("/VideoCapture", this, true);
     }
 
-#if FPP_MAJOR_VERSION < 4 || FPP_MINOR_VERSION < 1
-    virtual void modifyChannelData(int ms, uint8_t *seqData) override {
-#else
-    virtual void modifySequenceData(int ms, uint8_t *seqData) override {
-#endif
-        LogExcess(VB_PLUGIN, "modifyChannelData()\n");
-
-        if (vcap && captureOn) {
-            if ((width != outputWidth) || (height != outputHeight)) {
-                if (vcap->GetFrame(tmpFrame)) {
-                    unsigned int stride = outputWidth * 3;
-                    unsigned char *src = tmpFrame;
-                    unsigned char *dst = seqData + startChannel;
-
-                    for (int y = 0; y < outputHeight; y++) {
-                        src = tmpFrame + ((y + cropT) * width * 3) + (cropL * 3);
-                        memcpy(dst, src, stride);
-                        dst += stride;
-                    }
-                }
-            } else {
-                vcap->GetFrame(seqData + startChannel);
-            }
-        }
-    }
-
     Json::Value      config;
-    v4l2Capture     *vcap;
-    unsigned int     width;
-    unsigned int     height;
-    unsigned int     outputWidth;
-    unsigned int     outputHeight;
-    unsigned int     cropL;
-    unsigned int     cropT;
-    unsigned int     startChannel;
-    std::atomic_bool captureOn;
-    bool             forceChannelOutput;
-    unsigned char   *tmpFrame;
+    libcamera::CameraManager *cameras = nullptr;
+    VideoCaptureEffect *effect = nullptr;
 };
 
 
