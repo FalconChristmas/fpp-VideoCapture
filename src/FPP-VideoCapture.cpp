@@ -140,6 +140,7 @@ public:
                     requests[x]->reuse(Request::ReuseFlag::ReuseBuffers);
                     requests[x]->addBuffer(sc.stream(), allocator->buffers(sc.stream())[x].get());
                     bufferSize = allocator->buffers(sc.stream())[x]->planes()[0].length;
+
                     buffers[x] = (uint8_t*)mmap(NULL, bufferSize, PROT_READ | PROT_WRITE, MAP_SHARED,  allocator->buffers(sc.stream())[x]->planes()[0].fd.get(), 0);
                     camera->queueRequest(requests[x].get());
                 }
@@ -148,13 +149,15 @@ public:
                 camera->stop();
                 for (int x = 0; x < numBuffers; x++) {
                     if (buffers[x]) {
-                        munmap(buffers[numBuffers], bufferSize);
+                        munmap(buffers[x], bufferSize);
                     }
                 }
                 if (swsCtx) {
                     av_frame_free(&srcFrame);
                     av_frame_free(&dstFrame);
+                    sws_freeContext(swsCtx);
                 }
+
                 camera->release();
                 delete allocator;
             }
