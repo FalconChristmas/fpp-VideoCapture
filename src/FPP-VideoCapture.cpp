@@ -65,9 +65,12 @@ public:
             if (args.size() < 1) {
                 return false;
             }
-            auto camera = plugin->cameras->get(args[0]);
+            std::string cid = args[0];
+            if (cid == "--Default--") {
+                cid = plugin->cameras->cameras().front()->id();
+            }
+            auto camera = plugin->cameras->get(cid);
             camera->acquire();
-
             VCRunningEffect* re = new VCRunningEffect(camera, model, ae, args);
             model->setRunningEffect(re, 1);
             return true;
@@ -243,6 +246,7 @@ public:
             std::string p1 = req.get_path_pieces()[1];
             if (p1 == "Cameras") {
                 Json::Value camerasJson;
+                camerasJson["--Default--"] = std::string("--Default--");
                 for (auto &a : cameras->cameras()) {
                     camerasJson[a->id()] = a->properties().get(libcamera::properties::Model);
                 }
