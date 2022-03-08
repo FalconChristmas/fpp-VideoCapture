@@ -88,7 +88,7 @@ public:
                     autoEnable = true;
                     model->setState(st);
                 }
-                auto config = camera->generateConfiguration( { StreamRole::Viewfinder});
+                auto config = camera->generateConfiguration( { StreamRole::VideoRecording});
                 StreamConfiguration &sc = config->at(0);
                 sc.size.width = m->getWidth();
                 sc.size.height = m->getHeight();
@@ -103,7 +103,26 @@ public:
                     sc.pixelFormat = libcamera::formats::RGB888;
                     config->validate();
                 }
+                // couldn't get RGB888, see if we can get one of the formats that we can convert
+                // relatively easily
+                if (sc.pixelFormat != libcamera::formats::RGB888) {
+                    sc.pixelFormat = formats::YUYV;
+                    config->validate();
+                    if (sc.pixelFormat != libcamera::formats::YUYV) {
+                        sc.pixelFormat = formats::YVYU;
+                        config->validate();
+                        if (sc.pixelFormat != libcamera::formats::YVYU) {
+                            sc.pixelFormat = formats::YUV420;
+                            config->validate();
+                            if (sc.pixelFormat != libcamera::formats::YUV420) {
+                                sc.pixelFormat = formats::YUV422;
+                                config->validate();
+                            }
+                        }
+                    }
+                }
                 camera->configure(config.get());
+
                 allocator = new FrameBufferAllocator(camera);
                 allocator->allocate(sc.stream());
                 camera->start();
