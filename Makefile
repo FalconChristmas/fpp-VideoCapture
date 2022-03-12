@@ -6,10 +6,16 @@ all: libfpp-VideoCapture.$(SHLIB_EXT)
 debug: all
 
 CFLAGS+=-I.
-OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o
-LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -lcamera -ljsoncpp -lswscale -lavformat -lavutil
-CXXFLAGS_src/FPP-VideoCapture.o += -I$(SRCDIR) -I/usr/include/libcamera
 
+
+ifeq "1" "1"
+OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/V4LVideoCaptureEffect.o
+LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -lcamera -ljsoncpp -lv4l2
+else
+OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/LibCameraVideoCaptureEffect.o
+LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -lcamera -ljsoncpp -lswscale -lavformat -lavutil
+CXXFLAGS_src/LibCameraVideoCaptureEffect.o += -I$(SRCDIR) -I/usr/include/libcamera
+endif
 
 %.o: %.cpp Makefile
 	$(CCACHE) $(CC) $(CFLAGS) $(CXXFLAGS) $(CXXFLAGS_$@) -c $< -o $@
