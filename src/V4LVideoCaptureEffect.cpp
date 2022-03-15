@@ -214,8 +214,7 @@ public:
             buf.memory = V4L2_MEMORY_MMAP;
             if (v4l2_ioctl(m_fd, VIDIOC_DQBUF, &buf) == 0) {
                 //frame is available
-                model->setOverlayBufferScaledData(m_buffers[buf.index].start, bufferWidth, bufferHeight);
-                model->setOverlayBufferDirty(true);
+                model->setScaledData(m_buffers[buf.index].start, bufferWidth, bufferHeight);
                 // re-queue the buffer
                 if (!IOCTLWrapper(m_fd, VIDIOC_QBUF, &buf)) {
                     LogErr(VB_PLUGIN, "VIDIOC_QBUF call failed\n");
