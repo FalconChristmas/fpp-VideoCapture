@@ -10,7 +10,7 @@ CFLAGS+=-I.
 
 ifeq "1" "1"
 OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/V4LVideoCaptureEffect.o
-LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -lcamera -ljsoncpp -lv4l2
+LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -ljsoncpp -lv4l2
 else
 OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/LibCameraVideoCaptureEffect.o
 LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -lcamera -ljsoncpp -lswscale -lavformat -lavutil
