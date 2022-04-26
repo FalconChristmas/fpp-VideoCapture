@@ -20,3 +20,13 @@ public:
 
     static VideoCaptureEffect *createVideoCaptureEffect();
 };
+
+
+class IPVideoCaptureEffect : public PixelOverlayEffect {
+public:
+    IPVideoCaptureEffect();
+    virtual ~IPVideoCaptureEffect();
+
+    virtual bool apply(PixelOverlayModel* model, const std::string& ae, const std::vector<std::string>& args) override;
+
+};

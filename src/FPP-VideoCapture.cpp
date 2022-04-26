@@ -16,10 +16,12 @@ public:
       : FPPPlugin("fpp-VideoCapture")
     {
         effect = VideoCaptureEffect::createVideoCaptureEffect();
+        ipEffect = new IPVideoCaptureEffect();
     }
 
     virtual ~FPPVideoCapturePlugin() {
         delete effect;
+        delete ipEffect;
     }
 
     virtual const std::shared_ptr<httpserver::http_response> render_GET(const httpserver::http_request &req) override {
@@ -46,6 +48,7 @@ public:
 
     Json::Value      config;
     VideoCaptureEffect *effect = nullptr;
+    IPVideoCaptureEffect *ipEffect = nullptr;
 };
 
 
