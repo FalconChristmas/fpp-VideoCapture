@@ -14,7 +14,7 @@ extern "C" {
 class IPVCRunningEffect : public RunningEffect {
     public:
     IPVCRunningEffect(PixelOverlayModel* m, const std::string& ae, const std::vector<std::string>& args,
-        AVFormatContext* fc, AVCodec *d, int idx) :
+        AVFormatContext* fc, const AVCodec *d, int idx) :
         RunningEffect(m),
         autoEnable(false),
         format_ctx(fc), 
@@ -94,7 +94,7 @@ class IPVCRunningEffect : public RunningEffect {
     }
 
     AVFormatContext* format_ctx = nullptr;
-    AVCodec* decoder = nullptr;
+    const AVCodec* decoder = nullptr;
     AVFrame* dstFrame = nullptr;
     int video_stream_index = -1;
     bool autoEnable;
@@ -134,7 +134,7 @@ bool IPVideoCaptureEffect::apply(PixelOverlayModel* model, const std::string& ae
     printf("connecting to %s\n", url.c_str());
 
     AVFormatContext* format_ctx = avformat_alloc_context();
-    AVCodec* decoder = nullptr;
+    const AVCodec* decoder = nullptr;
     int video_stream_index = -1;
 
     if (avformat_open_input(&format_ctx, url.c_str(), NULL, NULL) != 0) {
