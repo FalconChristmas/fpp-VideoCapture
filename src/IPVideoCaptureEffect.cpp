@@ -161,3 +161,10 @@ bool IPVideoCaptureEffect::apply(PixelOverlayModel* model, const std::string& ae
     model->setRunningEffect(re, 1);
     return true;
 }
+
+
+#ifdef PLATFORM_OSX
+VideoCaptureEffect *VideoCaptureEffect::createVideoCaptureEffect() {
+    return nullptr;
+}
+#endif

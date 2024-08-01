@@ -9,8 +9,12 @@ CFLAGS+=-I.
 
 
 ifeq "1" "1"
-OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/V4LVideoCaptureEffect.o src/IPVideoCaptureEffect.o
-LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -ljsoncpp -lv4l2
+OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/IPVideoCaptureEffect.o
+LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -ljsoncpp -lswscale -lavformat -lavutil -lavcodec -lhttpserver
+ifneq '$(ARCH)' 'OSX'
+OBJECTS_fpp_VideoCapture_so += src/V4LVideoCaptureEffect.o
+LIBS_fpp_VideoCapture_so += -lv4l2
+endif
 else
 OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/LibCameraVideoCaptureEffect.o  src/IPVideoCaptureEffect.o
 LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -lcamera -ljsoncpp -lswscale -lavformat -lavutil
