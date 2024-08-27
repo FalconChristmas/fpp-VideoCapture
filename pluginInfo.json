@@ -16,7 +16,7 @@
         {
             "minFPPVersion": "6.0",
             "maxFPPVersion": "0",
-            "branch": "master",
+            "branch": "FPP7",
             "allowUpdates": 1,
             "sha": ""
         }
