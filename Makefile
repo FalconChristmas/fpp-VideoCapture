@@ -2,24 +2,16 @@ SRCDIR ?= /opt/fpp/src
 include $(SRCDIR)/makefiles/common/setup.mk
 include $(SRCDIR)/makefiles/platform/*.mk
 
+
 all: libfpp-VideoCapture.$(SHLIB_EXT)
 debug: all
 
 CFLAGS+=-I.
 
 
-ifeq "1" "1"
-OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/IPVideoCaptureEffect.o
-LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -ljsoncpp -lswscale -lavformat -lavutil -lavcodec
-ifneq '$(ARCH)' 'OSX'
-OBJECTS_fpp_VideoCapture_so += src/V4LVideoCaptureEffect.o
-LIBS_fpp_VideoCapture_so += -lv4l2
-endif
-else
-OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/LibCameraVideoCaptureEffect.o  src/IPVideoCaptureEffect.o
-LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -lcamera -ljsoncpp -lswscale -lavformat -lavutil
-CXXFLAGS_src/LibCameraVideoCaptureEffect.o += -I$(SRCDIR) -I/usr/include/libcamera
-endif
+
+OBJECTS_fpp_VideoCapture_so = src/FPP-VideoCapture.o src/IPVideoCaptureEffect.o src/V4LVideoCaptureEffect.o
+LIBS_fpp_VideoCapture_so = -L$(SRCDIR) -lfpp -ljsoncpp -lswscale -lavformat -lavutil -lavcodec -lv4l2
 
 %.o: %.cpp Makefile
 	$(CCACHE) $(CC) $(CFLAGS) $(CXXFLAGS) $(CXXFLAGS_$@) -c $< -o $@
