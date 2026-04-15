@@ -10,7 +10,7 @@ CFLAGS+=-I.
 
 ifeq "1" "1"
 OBJECTS_fpp_VideoCapture_so += src/FPP-VideoCapture.o src/IPVideoCaptureEffect.o
-LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -ljsoncpp -lswscale -lavformat -lavutil -lavcodec -lhttpserver
+LIBS_fpp_VideoCapture_so += -L$(SRCDIR) -lfpp -ljsoncpp -lswscale -lavformat -lavutil -lavcodec
 ifneq '$(ARCH)' 'OSX'
 OBJECTS_fpp_VideoCapture_so += src/V4LVideoCaptureEffect.o
 LIBS_fpp_VideoCapture_so += -lv4l2
