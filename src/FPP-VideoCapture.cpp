@@ -4,6 +4,7 @@
 
 
 #include "Plugin.h"
+#include <drogon/drogon.h>
 #include "Plugins.h"
 
 #include "VideoCaptureEffect.h"
@@ -27,17 +28,16 @@ public:
 
     // Register drogon HTTP API endpoints
     void registerApis() override {
-        using namespace drogon;
         // /api/plugin-apis/VideoCapture/Cameras
-        app().registerHandler("/api/plugin-apis/VideoCapture/Cameras",
-            [this](const HttpRequestPtr& req, std::function<void (const HttpResponsePtr &)> &&callback) {
+        drogon::app().registerHandler("/api/plugin-apis/VideoCapture/Cameras",
+            [this](const drogon::HttpRequestPtr& req, std::function<void (const drogon::HttpResponsePtr &)> &&callback) {
                 Json::Value camerasJson;
                 camerasJson["--Default--"] = std::string("--Default--");
                 effect->ListCameras(camerasJson);
-                auto resp = HttpResponse::newHttpJsonResponse(camerasJson);
+                auto resp = drogon::HttpResponse::newHttpJsonResponse(camerasJson);
                 callback(resp);
             },
-            {Post, Get});
+            {drogon::Post, drogon::Get});
     }
 
 
