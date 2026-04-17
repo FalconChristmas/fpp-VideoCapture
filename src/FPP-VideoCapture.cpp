@@ -1,15 +1,16 @@
 #include <fpp-pch.h>
 
-#include <httpserver.hpp>
+
 
 
 #include "Plugin.h"
+#include <drogon/drogon.h>
 #include "Plugins.h"
 
 #include "VideoCaptureEffect.h"
 
 
-class FPPVideoCapturePlugin : public FPPPlugin, public httpserver::http_resource {
+class FPPVideoCapturePlugin : public FPPPlugin {
 public:
     
     FPPVideoCapturePlugin()
@@ -24,27 +25,22 @@ public:
         delete ipEffect;
     }
 
-    virtual HTTP_RESPONSE_CONST std::shared_ptr<httpserver::http_response> render_GET(const httpserver::http_request &req) override {
-        std::string respStr = "";
-        int respCode = 404;
-        std::string respType = "text/plain";
-        if (req.get_path_pieces().size() > 1) {
-            std::string p1 = req.get_path_pieces()[1];
-            if (p1 == "Cameras") {
+
+    // Register drogon HTTP API endpoints
+    void registerApis() override {
+        // /api/plugin-apis/VideoCapture/Cameras
+        drogon::app().registerHandler("/api/plugin-apis/VideoCapture/Cameras",
+            [this](const drogon::HttpRequestPtr& req, std::function<void (const drogon::HttpResponsePtr &)> &&callback) {
                 Json::Value camerasJson;
                 camerasJson["--Default--"] = std::string("--Default--");
                 effect->ListCameras(camerasJson);
-                respCode = 200;
-                respStr = SaveJsonToString(camerasJson);
-                respType = "application/json";
-            }
-        }
-        return std::shared_ptr<httpserver::http_response>(new httpserver::string_response(respStr, respCode, respType));
+                auto resp = drogon::HttpResponse::newHttpJsonResponse(camerasJson);
+                callback(resp);
+            },
+            {drogon::Post, drogon::Get});
     }
 
-    void registerApis(httpserver::webserver *m_ws) override {
-        m_ws->register_resource("/VideoCapture", this, true);
-    }
+
 
     Json::Value      config;
     VideoCaptureEffect *effect = nullptr;
