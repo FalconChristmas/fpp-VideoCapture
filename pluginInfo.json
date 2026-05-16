@@ -28,6 +28,13 @@
         },
         {
             "minFPPVersion": "9.0",
+            "maxFPPVersion": "9.99",
+            "branch": "master",
+            "allowUpdates": 1,
+            "sha": "1546deef3d7d4ca08c6acd0e04b1f5abdd32ff35"
+        },
+        {
+            "minFPPVersion": "10.0",
             "maxFPPVersion": "0",
             "branch": "master",
             "allowUpdates": 1,

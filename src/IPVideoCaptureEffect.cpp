@@ -85,7 +85,7 @@ class IPVCRunningEffect : public RunningEffect {
         }
 
         av_frame_free(&pic);
-        avcodec_close(ccontext);
+        avcodec_free_context(&ccontext);
         if (swsCtx) {
             av_frame_free(&dstFrame);
             dstFrame = nullptr;
