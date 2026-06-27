@@ -1,6 +1,9 @@
 #include <fpp-pch.h>
 
-#include <httpserver.hpp>
+// HttpAppFramework.h must come before fpphttp.h: fpphttp.h undefines the
+// trantor LOG_* macros, but drogon's own headers need them while compiling.
+#include <drogon/HttpAppFramework.h>
+#include "fpphttp.h"
 
 
 #include "Plugin.h"
@@ -9,7 +12,7 @@
 #include "VideoCaptureEffect.h"
 
 
-class FPPVideoCapturePlugin : public FPPPlugin, public httpserver::http_resource {
+class FPPVideoCapturePlugin : public FPPPlugin {
 public:
     
     FPPVideoCapturePlugin()
@@ -24,12 +27,14 @@ public:
         delete ipEffect;
     }
 
-    virtual HTTP_RESPONSE_CONST std::shared_ptr<httpserver::http_response> render_GET(const httpserver::http_request &req) override {
+    void handleVideoCaptureRequest(const drogon::HttpRequestPtr &req,
+                                   std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
         std::string respStr = "";
         int respCode = 404;
         std::string respType = "text/plain";
-        if (req.get_path_pieces().size() > 1) {
-            std::string p1 = req.get_path_pieces()[1];
+        std::vector<std::string> pieces = getPathPieces(req->path());
+        if (pieces.size() > 1) {
+            std::string p1 = pieces[1];
             if (p1 == "Cameras") {
                 Json::Value camerasJson;
                 camerasJson["--Default--"] = std::string("--Default--");
@@ -39,11 +44,20 @@ public:
                 respType = "application/json";
             }
         }
-        return std::shared_ptr<httpserver::http_response>(new httpserver::string_response(respStr, respCode, respType));
+        callback(makeStringResponse(respStr, respCode, respType));
     }
 
-    void registerApis(httpserver::webserver *m_ws) override {
-        m_ws->register_resource("/VideoCapture", this, true);
+    void registerApis() override {
+        auto handler = [this](const drogon::HttpRequestPtr &req,
+                              std::function<void(const drogon::HttpResponsePtr &)> &&callback) {
+            handleVideoCaptureRequest(req, std::move(callback));
+        };
+        auto handler2 = handler;
+        // The web UI requests /VideoCapture/Cameras (proxied from
+        // api/plugin-apis/VideoCapture/Cameras), so register the subpath regex
+        // in addition to the bare path.
+        drogon::app().registerHandler("/VideoCapture", std::move(handler), {drogon::Get});
+        drogon::app().registerHandlerViaRegex("/VideoCapture/.*", std::move(handler2), {drogon::Get});
     }
 
     Json::Value      config;
