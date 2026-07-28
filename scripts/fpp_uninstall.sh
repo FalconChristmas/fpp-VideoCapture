@@ -8,3 +8,7 @@ cd $BASEDIR
 cd ..
 make clean
 
+: "${FPPDIR:=/opt/fpp}"
+. "${FPPDIR}/scripts/common"
+setSetting restartFlag 1
+
