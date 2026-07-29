@@ -9,3 +9,7 @@ BASEDIR=$(dirname $0)
 cd $BASEDIR
 cd ..
 make
+
+: "${FPPDIR:=/opt/fpp}"
+. "${FPPDIR}/scripts/common"
+setSetting restartFlag 1
