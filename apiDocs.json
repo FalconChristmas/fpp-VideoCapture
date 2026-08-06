@@ -1,0 +1,40 @@
+{
+    "paths": {
+        "/VideoCapture/Cameras": {
+            "get": {
+                "summary": "Available capture devices",
+                "description": "The cameras the player can capture from, as a map of device identifier to display name. Used to populate the camera list on the Video Capture overlay effect.",
+                "responses": {
+                    "200": {
+                        "description": "Cameras",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                },
+                                "example": {
+                                    "--Default--": "--Default--",
+                                    "/dev/video0": "USB Camera"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/VideoCapture": {
+            "get": {
+                "summary": "Video Capture plugin API root",
+                "description": "The registered parent path. It serves no content of its own - the capture device list is at /VideoCapture/Cameras - and answers 404 for anything else.",
+                "responses": {
+                    "404": {
+                        "description": "No such Video Capture endpoint"
+                    }
+                }
+            }
+        }
+    }
+}
