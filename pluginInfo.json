@@ -7,6 +7,8 @@
 	"srcURL": "https://github.com/FalconChristmas/fpp-VideoCapture.git",
 	"bugURL": "https://github.com/FalconChristmas/fpp-VideoCapture/issues",
 	"iconURL": "https://raw.githubusercontent.com/FalconChristmas/fpp-VideoCapture/master/icon.png",
+	"minMemoryMB": 1024,
+	"minCpuCores": 2,
 	"versions": [
         {
             "minFPPVersion": "4.0",

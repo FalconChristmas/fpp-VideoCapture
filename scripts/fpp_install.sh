@@ -1,9 +1,10 @@
 #!/bin/bash
+set -e
 
 # fpp-VideoCapture install script
 
-sudo apt-get -y update
-sudo apt-get -y install libv4l-dev v4l-utils libavformat-dev libavcodec-dev libswscale-dev
+apt-get -y update
+apt-get -y install libv4l-dev v4l-utils libavformat-dev libavcodec-dev libswscale-dev
 
 BASEDIR=$(dirname $0)
 cd $BASEDIR
