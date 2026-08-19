@@ -1,6 +1,7 @@
 #include <fpp-pch.h>
 
 #include "fpphttp.h"
+#include "common.h"
 
 #include "Plugin.h"
 #include "Plugins.h"

@@ -1,6 +1,8 @@
 #include <fpp-pch.h>
 
 #include "VideoCaptureEffect.h"
+#include "common.h"
+#include "log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
