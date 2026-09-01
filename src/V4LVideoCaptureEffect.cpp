@@ -244,9 +244,9 @@ public:
         }
 
 
-        v4l2Buffer *m_buffers;
+        v4l2Buffer *m_buffers = nullptr;
         int m_bufferCount = 0;
-        int bufferWidth, bufferHeight;
+        int bufferWidth = 0, bufferHeight = 0;
         bool autoEnable;
         int m_fd = -1;
     };
