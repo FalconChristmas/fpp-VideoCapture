@@ -43,6 +43,28 @@
             "allowUpdates": 1,
             "sha": ""
         }
-	]
+	],
+	"privacy": {
+	 "summary": "Shows a camera picture on your matrix without recording it. Connects only to the camera address you enter. Sends nothing about you or the picture online.",
+	 "sends": [
+	  {
+	   "to": "http://the network camera address you enter",
+	   "what": "a request to open the camera's video stream, with any user name and password in the address",
+	   "why": "to show that camera's live picture on your matrix",
+	   "alwaysOn": false
+	  }
+	 ],
+	 "collects": [],
+	 "sensors": [
+	  {
+	   "type": "camera",
+	   "stored": false
+	  }
+	 ],
+	 "remoteAccess": "none",
+	 "systemChanges": [],
+	 "closedCode": false,
+	 "other": "When a network camera stream starts, the full address you entered, including any user name and password you put in it, is printed to the system journal (journalctl -u fppd), which FPP's troubleshooting page can show. Nothing is captured until you run a Video Capture effect from a playlist or the Effects page. Install fetches the video libraries it needs (libv4l, v4l-utils, ffmpeg libavformat/libavcodec/libswscale) from Debian's standard repository with apt."
+	}
 }
 
